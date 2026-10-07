@@ -1,0 +1,18 @@
+[
+  {
+    "alerta_id": "alerta-0001",
+    "zona_id": "zona-producao-1",
+    "pessoa_id": "pessoa-001",
+    "epi": "capacete",
+    "severidade": "alta",
+    "criado_em": "2026-09-23T10:15:00Z"
+  },
+  {
+    "alerta_id": "alerta-0002",
+    "zona_id": "zona-solda-2",
+    "pessoa_id": "pessoa-003",
+    "epi": "oculos",
+    "severidade": "critica",
+    "criado_em": "2026-09-23T10:20:00Z"
+  }
+]

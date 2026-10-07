@@ -1,0 +1,6 @@
+[
+  {"pessoa_id": "pessoa-001", "zona_id": "zona-producao-1", "epi": "capacete", "estado": "ausente", "confianca": 0.91},
+  {"pessoa_id": "pessoa-001", "zona_id": "zona-producao-1", "epi": "luvas", "estado": "correto", "confianca": 0.88},
+  {"pessoa_id": "pessoa-002", "zona_id": "zona-producao-1", "epi": "capacete", "estado": "incorreto", "confianca": 0.6},
+  {"pessoa_id": "pessoa-003", "zona_id": "zona-solda-2", "epi": "oculos", "estado": "ausente", "confianca": 0.95}
+]
