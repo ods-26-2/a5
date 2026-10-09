@@ -45,3 +45,45 @@ def test_desligamento_permitido_para_supervisor():
         alertas[0].alerta_id, "supervisor.joana", Papel.SUPERVISOR, motivo="situacao resolvida"
     )
     assert registro.usuario == "supervisor.joana"
+
+
+def test_historico_filtra_por_zona_tipo_e_periodo():
+    from datetime import datetime, timedelta, timezone
+
+    service = _service()
+    a1, a2 = service.alertas_ativos("zona-producao-1")[0], service.alertas_ativos("zona-solda-2")[0]
+    service.reconhecer(a1.alerta_id, "supervisor.joana")
+    service.silenciar(a2.alerta_id, "supervisor.joana")
+
+    # RF11: filtro por setor (antes o zona_id era aceito e ignorado)
+    assert [r.alerta_id for r in service.historico(zona_id="zona-producao-1")] == [a1.alerta_id]
+    assert [r.alerta_id for r in service.historico(zona_id="zona-solda-2")] == [a2.alerta_id]
+    assert [r.tipo for r in service.historico(tipo="mute")] == ["mute"]
+    assert service.historico(zona_id="zona-producao-1")[0].epi == "capacete"
+
+    agora = datetime.now(timezone.utc)
+    assert len(service.historico(desde=agora - timedelta(minutes=1))) == 2
+    assert service.historico(desde=agora + timedelta(minutes=1)) == []
+    # data sem fuso (como chega pela query string) e tratada como UTC, sem erro
+    assert len(service.historico(ate=(agora + timedelta(minutes=1)).replace(tzinfo=None))) == 2
+
+
+def test_relatorio_por_zona_tem_por_epi_e_respeita_periodo():
+    from datetime import datetime, timezone
+
+    service = _service()
+    r = service.relatorio_por_zona("zona-producao-1")
+    assert r["total"] == 1 and r["por_epi"] == {"capacete": 1} and r["por_severidade"] == {"alta": 1}
+    # alertas do mock sao de 23/09/2026: periodo posterior nao os inclui
+    vazio = service.relatorio_por_zona("zona-producao-1", desde=datetime(2026, 10, 1, tzinfo=timezone.utc))
+    assert vazio["total"] == 0 and vazio["por_epi"] == {}
+
+
+def test_alerta_traz_deteccoes_e_s4_so_o_descritor_do_clipe():
+    from src.a5.integrations.s4_client import S4ClientMock
+
+    alerta = _service().alertas_ativos("zona-producao-1")[0]
+    assert alerta.deteccoes and 0 <= alerta.deteccoes[0].x <= 1
+    evidencia = S4ClientMock().obter_evidencia(alerta.alerta_id)
+    assert evidencia.inicio_seg is not None and evidencia.fim_seg is not None
+    assert not hasattr(evidencia, "deteccoes")

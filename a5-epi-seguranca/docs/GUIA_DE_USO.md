@@ -131,60 +131,76 @@ Deve aparecer `11 passed`. Esses testes já cobrem RF1 a RF8 usando os mocks —
 Esta seção reproduz o mesmo fluxo do caso de uso "Detectar e Tratar Violação
 de Uso de EPI", clicando na interface.
 
-1. **Cadastrar um EPI no catálogo da zona** (RF1)
-   `POST /catalogo/zonas/zona-producao-1`
-   ```json
-   { "zona_id": "zona-producao-1", "epi_id": "capacete" }
-   ```
-
-2. **Definir a política de violação para esse EPI** (RF2)
+1. **Definir a política da zona** (RF1 + RF2)
    `POST /politica/zonas/zona-producao-1`
    ```json
    {
-     "zona_id": "zona-producao-1",
-     "epi_id": "capacete",
+     "zona": {
+       "id": "zona-producao-1",
+       "nome": "Produção 1",
+       "poligono": [{"x": 0.1, "y": 0.1}, {"x": 0.8, "y": 0.1}, {"x": 0.5, "y": 0.9}]
+     },
+     "classe_pessoa": "pessoa",
+     "equipamentos_obrigatorios": [
+       "capacete",
+       "colete",
+       { "epi_id": "luvas", "tempo_tolerancia_segundos": 5, "confianca_minima": 0.8 }
+     ],
      "tempo_tolerancia_segundos": 10,
      "confianca_minima": 0.6
    }
    ```
-   Por baixo dos panos, isso chama o `S2ClientMock` — dá para conferir em
-   `src/a5/integrations/s2_client.py` que o parâmetro fica guardado em memória.
+   - **Uma política por zona, com todos os equipamentos dela.** Para mudar os EPIs, envie
+     o conjunto completo de novo: cada `POST` cria uma **nova versão** e a última é a vigente
+     (`GET /politica/zonas/{zona}`; histórico em `/versoes`; uma por zona em `GET /politica`).
+   - Equipamentos aceitam o id, o nome ou qualquer **alias** do catálogo global
+     (`GET /catalogo/epis`): `"HELMET"`, `"Capacete"` e `"capacete"` são o mesmo EPI.
+     Tolerância e confiança são opcionais por equipamento; sem elas vale o padrão da política.
+   - O `poligono` é opcional e usa coordenadas normalizadas [0, 1] (o formato do editor B6).
+   - O catálogo da zona (`GET /catalogo/zonas/{zona}`) passa a refletir os equipamentos da
+     política. Com política definida, `POST`/`DELETE` no catálogo da zona respondem **409**:
+     altere os EPIs salvando uma nova versão da política.
+   - Por baixo dos panos, o documento (`policy_id`, `version`, `person_class`, `zone`,
+     `required_equipment`, `class_aliases`) vai para o `S2ClientMock` — dá para conferir em
+     `src/a5/integrations/s2_client.py` que ele fica guardado em memória.
 
-3. **Consultar o estado atual vindo do I9** (RF3)
+2. **Consultar o estado atual vindo do I9** (RF3)
    `GET /alertas/zonas/zona-producao-1/estado`
    Retorna os dados de `src/a5/mocks/fixtures/i9_estados.json` — edite esse
    arquivo para simular outros cenários (mais pessoas, outros EPIs, outras
    confianças).
 
-4. **Ver os alertas ativos vindos do S3** (RF4)
+3. **Ver os alertas ativos vindos do S3** (RF4)
    `GET /alertas?zona_id=zona-producao-1`
    Vem de `src/a5/mocks/fixtures/s3_alertas.json`.
 
-5. **Ver a tela de supervisão, já com evidência do S4** (RF7)
+4. **Ver a tela de supervisão, já com evidência do S4** (RF7)
    `GET /supervisao/ocorrencias?zona_id=zona-producao-1`
    Junta o alerta do S3 com a evidência do S4 (mock) e monta a descrição —
    é exatamente o que o front vai consumir.
 
-6. **Reconhecer o alerta** (RF5)
+5. **Reconhecer o alerta** (RF5)
    `POST /alertas/{alerta_id}/ack`
    ```json
    { "usuario": "supervisor.joana" }
    ```
 
-7. **Tentar desligar como operador (deve falhar com 403)**
+6. **Tentar desligar como operador (deve falhar com 403)**
    `POST /alertas/{alerta_id}/desligar`
    ```json
    { "usuario": "operador.carlos", "papel": "operador" }
    ```
 
-8. **Desligar como supervisor (deve funcionar)** (RF6)
+7. **Desligar como supervisor (deve funcionar)** (RF6)
    `POST /alertas/{alerta_id}/desligar`
    ```json
    { "usuario": "supervisor.joana", "papel": "supervisor" }
    ```
 
-9. **Conferir no histórico** (RF11)
+8. **Conferir no histórico** (RF11)
    `GET /historico?usuario=supervisor.joana`
+   Filtros: `zona_id`, `usuario`, `tipo` (`ack`/`mute`/`desligamento`), `desde` e `ate` (ISO-8601).
+   O relatório (`GET /historico/relatorio/{zona}`) traz totais por severidade e por EPI e aceita `desde`/`ate`.
 
 ---
 
@@ -226,7 +242,8 @@ Nenhum `service.py` dos módulos precisa mudar — eles só conhecem a interface
 
 | Requisito | Onde está |
 |---|---|
-| RF1 — Catálogo de EPI | `modules/catalogo_epi/` + `api/catalogo.py` |
+| RF1 — Catálogo de EPI | `modules/catalogo_epi/` + `api/catalogo.py` (CRUD de EPIs com aliases; catálogo da zona espelha a política) |
+| Zonas monitoradas | `modules/zonas/` + `api/zonas.py` (cadastro, polígono, câmera; alterar a geometria gera nova versão da política; `DELETE` desativa e `DELETE ?definitivo=true` apaga, só sem política nem histórico) |
 | RF2 — Política de violação | `modules/politica_violacao/` + `api/politica.py` |
 | RF3 — Receber estado do I9 | `modules/gestao_alertas/service.py::estado_atual_da_zona` |
 | RF4 — Alertas via S3 | `modules/gestao_alertas/service.py::alertas_ativos` |
@@ -234,13 +251,13 @@ Nenhum `service.py` dos módulos precisa mudar — eles só conhecem a interface
 | RF6 — Desligamento manual | `modules/gestao_alertas/service.py::desligar_manualmente` + `auth/permissions.py` |
 | RF7 — Tela de supervisão | `modules/front_supervisao/` + `api/supervisao.py` |
 | RF8 — Isolamento front/back | toda a pasta `api/` só chama `service`s, nunca `integrations/` direto |
-| RF9 — Perfis de acesso | `auth/permissions.py` + `api/acessos.py` |
-| RF10 — Relatórios | `modules/gestao_alertas/service.py::relatorio_por_zona` |
+| RF9 — Perfis de acesso | `auth/permissions.py` + `auth/service.py` (login, sessão) + `auth/deps.py` (papel por rota) + `api/acessos.py` |
+| RF10 — Relatórios | `modules/gestao_alertas/service.py::relatorio_por_zona` + exportação CSV em `api/historico.py` |
 | RF11 — Histórico com filtros | `modules/gestao_alertas/service.py::historico` |
-| RF12 — Turnos de monitoramento | `modules/politica_violacao/` (`Turno`) + `api/monitoramento.py` |
+| RF12 — Turnos de monitoramento | `modules/politica_violacao/` (`Turno`, `monitoramento_ativo`) + `api/monitoramento.py` (`PUT` troca a grade; `GET .../ativo`) |
 | RF13 — Status de conexão | `integrations/health.py` + `GET /health` |
 | RNF1 — Auditabilidade | todo ACK/MUTE/desligamento passa por `GestaoAlertasRepository.registrar_acao` |
-| RNF2 — Confiança intermediária | `politica_violacao/service.py::classificar_confianca` + `A5_CONFIANCA_MINIMA`/`MAXIMA` no `.env` |
+| RNF2 — Confiança intermediária | `GET /alertas/zonas/{z}/estado` devolve `classificacao` (baixa/incerta/alta); `politica_violacao/service.py::classificar_confianca` + `A5_CONFIANCA_MINIMA`/`MAXIMA` no `.env` |
 
 ---
 
@@ -251,15 +268,27 @@ Para manter esta primeira entrega enxuta, ficou de fora:
 - **Persistência real.** Todos os `repository.py` guardam dados em memória
   (um dicionário Python). Reiniciar o servidor apaga tudo. Quando o time
   decidir o banco (SQL ou não), o lugar certo para plugar é `src/a5/db/`.
-- **Autenticação de verdade.** `POST /usuarios` hoje só cadastra um perfil,
-  sem senha nem token. Dá pra evoluir depois com JWT ou o que o time escolher,
-  sem mexer em `auth/permissions.py` (que já separa "quem pode o quê" da
-  forma de login).
+- **Autenticação de produção.** Já há login (`POST /auth/login`, token Bearer com
+  validade de 8 h, senha com PBKDF2), mas usuários e sessões ficam em memória.
+  Para produção, trocar `auth/service.py` por SSO/Supabase Auth mantendo
+  `auth/deps.py` como única porta de entrada nas rotas.
 - **Clientes reais para I9/S2/S3/S4.** Ver seção 5.
 - **CORS e deploy.** O `main.py` está com a configuração mínima do FastAPI,
   sem nada de produção ainda.
 
 ---
+
+## 7.0 Login e permissões
+
+- `A5_EXIGIR_LOGIN=false` (padrão): rotas aceitam chamadas **sem** token (usuário/papel no corpo,
+  como nos testes antigos). Com token, vale o usuário e o papel **da sessão**, nunca o do corpo.
+  `A5_EXIGIR_LOGIN=true`: sem token, 401.
+- Em `A5_ENV=development` nascem 4 usuários: `operador`, `supervisor`, `auditor` (senha `<papel>123`)
+  e `administrador` (senha `A5_ADMIN_SENHA`, padrão `admin123`). Fora de development só existe o
+  administrador, e só se `A5_ADMIN_SENHA` estiver definida.
+- Quem pode o quê: configurar zonas/políticas/turnos = supervisor e administrador; EPIs e usuários =
+  administrador; histórico e relatórios = supervisor, auditor, administrador; desligar alarme = supervisor
+  e administrador; reconhecer/silenciar = qualquer usuário logado.
 
 ## 7.1 Rodando em laboratório compartilhado (sem root, sem venv)
 

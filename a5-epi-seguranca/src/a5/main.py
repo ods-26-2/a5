@@ -9,6 +9,7 @@ from src.a5.api import (
     monitoramento,
     politica,
     supervisao,
+    zonas,
 )
 
 app = FastAPI(
@@ -18,12 +19,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.include_router(acessos.router)
+app.include_router(zonas.router)
 app.include_router(catalogo.router)
 app.include_router(politica.router)
 app.include_router(alertas.router)
 app.include_router(supervisao.router)
 app.include_router(historico.router)
-app.include_router(acessos.router)
 app.include_router(monitoramento.router)
 
 

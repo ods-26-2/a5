@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from src.a5.modules.gestao_alertas.models import RegistroDesligamento, ReconhecimentoRegistrado
 
 
@@ -18,10 +20,21 @@ class GestaoAlertasRepository:
         self,
         zona_id: str | None = None,
         usuario: str | None = None,
+        tipo: str | None = None,
+        desde: datetime | None = None,
+        ate: datetime | None = None,
     ) -> list[ReconhecimentoRegistrado]:
         registros = self._registros
+        if zona_id:
+            registros = [r for r in registros if r.zona_id == zona_id]
         if usuario:
             registros = [r for r in registros if r.usuario == usuario]
+        if tipo:
+            registros = [r for r in registros if r.tipo == tipo]
+        if desde:
+            registros = [r for r in registros if r.registrado_em >= desde]
+        if ate:
+            registros = [r for r in registros if r.registrado_em <= ate]
         return registros
 
 

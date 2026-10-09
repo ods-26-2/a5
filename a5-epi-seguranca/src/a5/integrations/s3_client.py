@@ -12,11 +12,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Severidade = Literal["baixa", "media", "alta", "critica"]
 
 FIXTURES = Path(__file__).resolve().parent.parent / "mocks" / "fixtures" / "s3_alertas.json"
+
+
+class Deteccao(BaseModel):
+    """Caixa a desenhar sobre o clipe, em coordenadas normalizadas [0,1]. Contrato assumido."""
+    label: str
+    x: float
+    y: float
+    width: float
+    height: float
 
 
 class AlertaS3(BaseModel):
@@ -28,6 +37,8 @@ class AlertaS3(BaseModel):
     criado_em: datetime
     reconhecido: bool = False
     silenciado: bool = False
+    # Dados do evento (vindos de I9/S2): onde a pessoa estava no quadro. Opcional.
+    deteccoes: list[Deteccao] = Field(default_factory=list)
 
 
 class S3Client(ABC):

@@ -5,7 +5,7 @@ Contrato assumido (RF7): A5 pede o descritor de clipe/imagem associado a um
 alerta; midia trafega por referencia (URL/id), nunca embutida no evento.
 """
 from abc import ABC, abstractmethod
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EvidenciaS4(BaseModel):
@@ -14,6 +14,8 @@ class EvidenciaS4(BaseModel):
     url_referencia: str
     inicio_seg: float | None = None
     fim_seg: float | None = None
+    # Instantes (s) relevantes dentro do clipe, segundo o descritor do V6/S4.
+    pontos_de_interesse: list[float] = Field(default_factory=list)
 
 
 class S4Client(ABC):
@@ -31,6 +33,7 @@ class S4ClientMock(S4Client):
             url_referencia=f"https://s4.mock.local/evidencias/{alerta_id}.mp4",
             inicio_seg=0.0,
             fim_seg=6.0,
+            pontos_de_interesse=[3.0],
         )
 
 

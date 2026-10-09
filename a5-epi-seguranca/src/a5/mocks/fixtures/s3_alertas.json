@@ -5,7 +5,16 @@
     "pessoa_id": "pessoa-001",
     "epi": "capacete",
     "severidade": "alta",
-    "criado_em": "2026-09-23T10:15:00Z"
+    "criado_em": "2026-09-23T10:15:00Z",
+    "deteccoes": [
+      {
+        "label": "pessoa",
+        "x": 0.3,
+        "y": 0.15,
+        "width": 0.28,
+        "height": 0.7
+      }
+    ]
   },
   {
     "alerta_id": "alerta-0002",
@@ -13,6 +22,15 @@
     "pessoa_id": "pessoa-003",
     "epi": "oculos",
     "severidade": "critica",
-    "criado_em": "2026-09-23T10:20:00Z"
+    "criado_em": "2026-09-23T10:20:00Z",
+    "deteccoes": [
+      {
+        "label": "pessoa",
+        "x": 0.55,
+        "y": 0.2,
+        "width": 0.25,
+        "height": 0.65
+      }
+    ]
   }
 ]

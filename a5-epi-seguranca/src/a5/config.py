@@ -18,5 +18,12 @@ class Settings(BaseSettings):
     confianca_minima: float = 0.4
     confianca_maxima: float = 0.8
 
+    # RF9: com True, as rotas de acao exigem login (token Bearer). Com False, ainda
+    # aceitam chamadas sem token (usuario/papel no corpo), como antes.
+    exigir_login: bool = False
+    # Senha do administrador criado na partida. Em development, vazio = "admin123";
+    # fora dele, vazio = nenhum usuario e criado.
+    admin_senha: str = ""
+
 
 settings = Settings()
